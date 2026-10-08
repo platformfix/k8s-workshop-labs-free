@@ -1,0 +1,39 @@
+# The same Deployment as deployment.yaml, with one change: the container is
+# given a command that prints an error and exits 1.
+#
+# Apply it over the running app and the Pods enter CrashLoopBackOff.
+# Run `diff deployment.yaml broken-deployment.yaml` to see the whole change.
+#
+# `kubectl rollout undo deployment/nginx-deployment` puts the good version back.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-deployment
+  labels:
+    app: nginx
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+        - name: nginx
+          image: nginx:1.20
+          command:
+            - sh
+            - -c
+            - 'echo "FATAL: config missing DATABASE_URL"; exit 1'
+          ports:
+            - containerPort: 80
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "100m"
+            limits:
+              memory: "128Mi"
+              cpu: "200m"

@@ -1,0 +1,85 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  labels:
+    app: frontend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      containers:
+        - name: nginx
+          image: nginx:1.21
+          ports:
+            - containerPort: 80
+          volumeMounts:
+            - name: nginx-config
+              mountPath: /etc/nginx/conf.d/default.conf
+              subPath: nginx.conf
+            - name: content
+              mountPath: /usr/share/nginx/html/index.html
+              subPath: index.html
+          resources:
+            limits:
+              memory: "128Mi"
+              cpu: "200m"
+            requests:
+              memory: "64Mi"
+              cpu: "100m"
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 10
+      volumes:
+        - name: nginx-config
+          configMap:
+            name: app-config
+            items:
+              - key: nginx.conf
+                path: nginx.conf
+        - name: content
+          configMap:
+            name: frontend-content
+            items:
+              - key: index.html
+                path: index.html
+---
+# ClusterIP, so `kubectl port-forward svc/frontend-service 8080:80` reaches it
+# on any cluster. Leave it that way unless you mean to spend money.
+#
+# Changing type to LoadBalancer does not always give you the harmless Pending
+# you get on kind or Docker Desktop. On a cloud it provisions a real load
+# balancer and bills you for it, and the workshop cluster is one of those:
+# Civo has no ServiceLB, so civo-ccm creates a chargeable Civo load balancer.
+# Nobody has measured what that costs, so treat it as real.
+#
+# `kubectl delete svc` removes it again. Check your provider's console after,
+# rather than assuming.
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend-service
+  labels:
+    app: frontend
+spec:
+  type: ClusterIP
+  selector:
+    app: frontend
+  ports:
+    - port: 80
+      targetPort: 80
